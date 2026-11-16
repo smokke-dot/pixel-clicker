@@ -1,0 +1,12 @@
+{
+  "name": "pixel-clicker",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Telegram Mini App кликер: престиж, скины за Stars, топ игроков",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Пиксель — кликер</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#4ddb4d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<link rel="icon" href="icon-192.png" type="image/png" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #1a1f33;
+    --panel2: #232a47;
+    --text: #e8eaf6;
+    --hint: #8a92b8;
+    --accent: #4ddb4d;
+    --accent2: #ffd21f;
+    --accent3: #4aa3ff;
+    --accent-text: #07130a;
+    --danger: #ff6b81;
+    --border: #2b3257;
+    --star: #ffd21f;
+    --click: #ff6b81;
+    --auto: #4aa3ff;
+    --luck: #ffd21f;
+    --global: #b14dff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  html {
+    background-image:
+      radial-gradient(130% 90% at 50% -20%, rgba(77,219,77,0.16), transparent 60%),
+      radial-gradient(120% 80% at 50% 120%, rgba(74,163,255,0.16), transparent 60%),
+      radial-gradient(90% 70% at 82% 50%, rgba(255,107,129,0.10), transparent 60%);
+    background-attachment: fixed;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow: hidden;
+    background: transparent;
+  }
+
+  /* ---------- Screens / tabs ---------- */
+  .screens { flex: 1 1 auto; min-height: 0; position: relative; }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; min-height: 0; }
+  .screen.active { display: flex; }
+
+  .tabs { flex: 0 0 auto; display: flex; border-top: 2px solid var(--border); background: var(--panel); }
+  .tab {
+    flex: 1; padding: 11px 2px; background: none; border: none; color: var(--hint);
+    font-family: inherit; font-size: 8px; cursor: pointer; border-bottom: 3px solid transparent;
+  }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+  .gear {
+    position: fixed; top: calc(env(safe-area-inset-top) + 8px); right: 10px; z-index: 55;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: var(--panel2); border: 2px solid var(--border); border-radius: 10px;
+    color: var(--hint); font-size: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .gear:active { transform: scale(0.92); }
+
+  .list { flex: 1 1 auto; overflow-y: auto; padding: 8px 14px 14px; -webkit-overflow-scrolling: touch; }
+  .subhead { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 46px 8px 16px; }
+  .subhead h1 { font-size: 12px; letter-spacing: 1px; }
+  .subhead button { background: var(--panel2); color: var(--text); border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 9px; padding: 8px 10px; cursor: pointer; }
+  .note { font-size: 9px; color: var(--hint); line-height: 1.7; padding: 6px 2px 12px; }
+  .pill { display: inline-block; background: var(--panel2); border: 2px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 9px; color: var(--accent2); }
+
+  /* ---------- HUD ---------- */
+  .hud { flex: 0 0 auto; display: flex; gap: 8px; padding: 12px 46px 6px 12px; }
+  .stat {
+    flex: 1; background: var(--panel); border: 2px solid var(--border);
+    border-radius: 10px; padding: 10px 8px; text-align: center;
+  }
+  .stat-label { display: block; font-size: 7px; color: var(--hint); margin-bottom: 7px; letter-spacing: 1px; }
+  .stat-value { display: block; font-size: 16px; color: var(--accent2); }
+  .stat-value.green { color: var(--accent); }
+  .stat-value.purple { color: var(--global); }
+
+  .prestige-bar {
+    flex: 0 0 auto; margin: 4px 12px 0;
+    background: var(--panel); border: 2px solid var(--global); border-radius: 10px;
+    padding: 9px 12px; font-size: 8px; line-height: 1.8; color: var(--text); cursor: pointer; text-align: center;
+  }
+  .prestige-bar b { color: var(--global); }
+  .prestige-bar small { display: block; color: var(--hint); font-size: 7px; margin-top: 3px; }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    flex: 0 0 auto; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4px 0 10px; overflow: visible;
+  }
+  .ambient { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .pet-wrap { position: relative; z-index: 2; }
+  .pet-bob { animation: bob 2.4s ease-in-out infinite; }
+  .pet { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .pet canvas { image-rendering: pixelated; display: block; }
+  .pet.pop { animation: pop 0.18s ease; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  @keyframes pop { 0% {transform:scale(1);} 40% {transform:scale(0.9);} 70% {transform:scale(1.07);} 100% {transform:scale(1);} }
+  .pet-shadow {
+    width: 110px; height: 18px; margin: -2px auto 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.45), transparent 70%);
+    animation: shadow 2.4s ease-in-out infinite;
+  }
+  @keyframes shadow { 0%,100% { transform: scaleX(1); opacity: 0.9; } 50% { transform: scaleX(0.82); opacity: 0.6; } }
+  .hint { margin-top: 6px; font-size: 9px; color: var(--hint); letter-spacing: 1px; animation: blink 1.6s steps(2, start) infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  .golden {
+    position: absolute; z-index: 3; cursor: pointer; touch-action: manipulation;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .golden canvas { image-rendering: pixelated; display: block; filter: drop-shadow(0 0 10px #ffd21f); }
+  .golden.on { display: block; animation: gpulse 0.9s ease-in-out infinite; }
+  @keyframes gpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+  .fx { position: fixed; inset: 0; pointer-events: none; z-index: 40; image-rendering: pixelated; }
+  .float {
+    position: fixed; z-index: 50; pointer-events: none; font-size: 15px; color: var(--accent2);
+    text-shadow: 2px 2px 0 #000; animation: rise 0.9s ease-out forwards;
+  }
+  .float.crit { color: var(--danger); font-size: 20px; }
+  .float.gold { color: var(--star); font-size: 18px; }
+  @keyframes rise { 0% {transform:translate(-50%,-50%) scale(0.6); opacity:1;} 100% {transform:translate(-50%,-160%) scale(1.15); opacity:0;} }
+
+  /* ---------- Upgrades (builds) ---------- */
+  .upgrades { flex: 1 1 auto; overflow-y: auto; padding: 0 12px 4px; -webkit-overflow-scrolling: touch; }
+  .build-head {
+    display: flex; align-items: center; gap: 8px; margin: 12px 2px 8px; font-size: 9px; letter-spacing: 1px;
+  }
+  .build-head .dot { width: 10px; height: 10px; border-radius: 2px; }
+  .build-head.click .dot { background: var(--click); }
+  .build-head.auto .dot { background: var(--auto); }
+  .build-head.luck .dot { background: var(--luck); }
+  .build-tabs { display: flex; gap: 6px; margin: 10px 0 6px; }
+  .build-tab {
+    flex: 1; padding: 9px 4px; background: var(--panel2); color: var(--hint);
+    border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 9px; cursor: pointer;
+  }
+  .build-tab.click.active { background: var(--click); color: #fff; border-color: var(--click); }
+  .build-tab.auto.active { background: var(--auto); color: #06131f; border-color: var(--auto); }
+  .build-tab.luck.active { background: var(--luck); color: #1a1200; border-color: var(--luck); }
+  .build-group.hidden { display: none; }
+  .up { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .up-icon { flex: 0 0 auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 25px; background: var(--panel2); border-radius: 8px; }
+  .up-info { flex: 1 1 auto; min-width: 0; }
+  .up-name { font-size: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 6px; }
+  .up-level { color: var(--accent); flex: 0 0 auto; }
+  .up-desc { font-size: 8px; color: var(--hint); line-height: 1.6; }
+  .up-buy {
+    flex: 0 0 auto; min-width: 76px; padding: 12px 10px; font-family: inherit; font-size: 10px;
+    color: var(--accent-text); background: var(--accent); border: none; border-radius: 8px;
+    cursor: pointer; touch-action: manipulation; border-bottom: 3px solid rgba(0,0,0,0.35);
+  }
+  .up-buy:active { transform: translateY(2px); border-bottom-width: 1px; }
+  .up-buy.disabled { background: var(--panel2); color: var(--hint); border-bottom-color: rgba(0,0,0,0.3); cursor: default; }
+
+  .footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; font-size: 7px; color: var(--hint); }
+  .reset { background: none; border: none; color: var(--danger); font-family: inherit; font-size: 7px; cursor: pointer; padding: 4px; }
+
+  /* ---------- Skill tree ---------- */
+  .tree-shards { flex: 0 0 auto; margin: 0 14px 10px; padding: 10px 12px; background: var(--panel); border: 2px solid var(--global); border-radius: 10px; font-size: 9px; text-align: center; line-height: 1.7; }
+  .tree-shards b { color: var(--global); }
+  .branch-title { display: flex; align-items: center; gap: 8px; margin: 14px 2px 8px; font-size: 9px; letter-spacing: 1px; }
+  .branch-title .dot { width: 10px; height: 10px; border-radius: 2px; }
+  .branch-title.click .dot { background: var(--click); }
+  .branch-title.auto .dot { background: var(--auto); }
+  .branch-title.luck .dot { background: var(--luck); }
+  .branch-title.global .dot { background: var(--global); }
+  .node { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .node-icon { flex: 0 0 auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: var(--panel2); border-radius: 8px; }
+  .node-info { flex: 1 1 auto; min-width: 0; }
+  .node-name { font-size: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 6px; }
+  .node-level { color: var(--global); flex: 0 0 auto; }
+  .node-desc { font-size: 8px; color: var(--hint); line-height: 1.6; }
+  .node-buy {
+    flex: 0 0 auto; min-width: 76px; padding: 12px 10px; font-family: inherit; font-size: 9px;
+    color: #1a1200; background: var(--global); border: none; border-radius: 8px; cursor: pointer;
+    touch-action: manipulation; border-bottom: 3px solid rgba(0,0,0,0.35);
+  }
+  .node-buy:active { transform: translateY(2px); border-bottom-width: 1px; }
+  .node-buy.disabled { background: var(--panel2); color: var(--hint); border-bottom-color: rgba(0,0,0,0.3); cursor: default; }
+  .node.locked { opacity: 0.5; }
+
+  /* ---------- Skins ---------- */
+  .skin-cat { font-size: 10px; letter-spacing: 1px; color: var(--hint); margin: 12px 2px 8px; }
+  .skin { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .skin.equipped { border-color: var(--accent2); }
+  .skin-preview { flex: 0 0 auto; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: var(--panel2); border-radius: 8px; }
+  .skin-preview canvas { image-rendering: pixelated; }
+  .skin-info { flex: 1 1 auto; min-width: 0; }
+  .skin-name { font-size: 10px; margin-bottom: 5px; }
+  .skin-desc { font-size: 8px; color: var(--hint); line-height: 1.6; }
+  .skin-bonus { font-size: 8px; color: var(--accent); margin-top: 5px; }
+  .skin-btn {
+    flex: 0 0 auto; min-width: 84px; padding: 11px 10px; font-family: inherit; font-size: 9px;
+    color: var(--accent-text); background: var(--accent); border: none; border-radius: 8px;
+    cursor: pointer; touch-action: manipulation; border-bottom: 3px solid rgba(0,0,0,0.35); line-height: 1.4;
+  }
+  .skin-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+  .skin-btn.star { background: var(--star); color: #1a1200; }
+  .skin-btn.coin { background: var(--accent); color: var(--accent-text); }
+  .skin-btn.equip { background: var(--accent2); color: #1a1200; }
+  .skin-btn.locked, .skin-btn.owned { background: var(--panel2); color: var(--hint); border-bottom-color: rgba(0,0,0,0.3); cursor: default; }
+
+  /* ---------- Leaderboard ---------- */
+  .myrank { flex: 0 0 auto; margin: 0 14px 10px; padding: 12px 14px; background: var(--panel); border: 2px solid var(--accent); border-radius: 10px; font-size: 10px; line-height: 1.7; text-align: center; }
+  .myrank b { color: var(--accent2); }
+  .metrics { flex: 0 0 auto; display: flex; gap: 6px; padding: 0 14px 10px; }
+  .metric {
+    flex: 1; min-width: 0; padding: 9px 4px; background: var(--panel2); color: var(--hint);
+    border: 2px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 7px; cursor: pointer;
+  }
+  .metric.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+
+  /* ---------- Settings ---------- */
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .setting-info { flex: 1 1 auto; min-width: 0; }
+  .setting-name { font-size: 10px; margin-bottom: 6px; }
+  .setting-desc { font-size: 8px; color: var(--hint); line-height: 1.6; }
+  .switch { flex: 0 0 auto; width: 52px; height: 28px; border-radius: 14px; background: var(--panel2); border: 2px solid var(--border); position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--hint); transition: transform 0.2s, background 0.2s; }
+  .switch.on { background: var(--accent); border-color: var(--accent); }
+  .switch.on::after { transform: translateX(22px); background: #ffffff; }
+  .row { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 11px 12px; margin-bottom: 8px; font-size: 9px; }
+  .row.me { border-color: var(--accent2); }
+  .row-rank { flex: 0 0 28px; color: var(--hint); text-align: center; }
+  .row-rank.top1 { color: var(--star); }
+  .row-rank.top2 { color: #c0c6dd; }
+  .row-rank.top3 { color: #e2a05a; }
+  .row-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-name small { display: block; color: var(--hint); font-size: 7px; margin-top: 4px; }
+  .row-score { flex: 0 0 auto; text-align: right; color: var(--accent2); }
+  .row-score small { display: block; color: var(--hint); font-size: 7px; margin-top: 4px; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; top: calc(14px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 2px solid var(--accent); color: var(--text); font-size: 10px;
+    padding: 12px 14px; border-radius: 10px; z-index: 60; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease; text-align: center; max-width: 90%; line-height: 1.7;
+    white-space: pre-line;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(6px); }
+
+  /* ---------- Modal ---------- */
+  .modal {
+    position: fixed; inset: 0; z-index: 70; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.65); padding: 22px;
+  }
+  .modal.show { display: flex; }
+  .modal-box {
+    background: var(--panel); border: 2px solid var(--accent); border-radius: 12px;
+    padding: 18px 16px; max-width: 360px; width: 100%; text-align: center;
+  }
+  .modal-msg { font-size: 10px; line-height: 1.8; color: var(--text); margin-bottom: 16px; white-space: pre-line; }
+  .daily-title { font-size: 11px; color: var(--accent2); margin-bottom: 12px; letter-spacing: 1px; }
+  #dailyOk { width: 100%; }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btn {
+    flex: 1; padding: 12px 8px; font-family: inherit; font-size: 10px; border: none; border-radius: 8px; cursor: pointer;
+    border-bottom: 3px solid rgba(0,0,0,0.35); touch-action: manipulation;
+  }
+  .modal-btn.cancel { background: var(--panel2); color: var(--hint); }
+  .modal-btn.ok { background: var(--accent); color: var(--accent-text); }
+  .modal-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+</style>
+</head>
+<body>
+
+  <div class="screens">
+
+    <!-- ================= ИГРА ================= -->
+    <div class="screen active" id="screen-game">
+      <header class="hud">
+        <div class="stat">
+          <span class="stat-label">МОНЕТЫ</span>
+          <span class="stat-value" id="coins">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">В СЕКУНДУ</span>
+          <span class="stat-value green" id="cps">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">ОСКОЛКИ</span>
+          <span class="stat-value purple" id="shards">0</span>
+        </div>
+      </header>
+
+      <div class="prestige-bar" id="prestigeBar"></div>
+
+      <main class="stage">
+        <canvas class="ambient" id="ambient"></canvas>
+        <div class="pet-wrap">
+          <div class="pet-bob">
+            <div class="pet" id="pet"><canvas id="petCanvas" width="16" height="16"></canvas></div>
+          </div>
+          <div class="pet-shadow"></div>
+        </div>
+        <div class="golden" id="golden"><canvas id="goldenCanvas" width="8" height="8"></canvas></div>
+        <div class="hint" id="hint">ТАПАЙ СЛАЙМА!</div>
+      </main>
+
+      <section class="upgrades" id="upgrades"></section>
+
+      <footer class="footer">
+        <button class="reset" id="reset">ℹ️ Как сброс?</button>
+        <span id="saveInfo">Сохранено</span>
+      </footer>
+    </div>
+
+    <!-- ================= ДЕРЕВО ================= -->
+    <div class="screen" id="screen-tree">
+      <header class="subhead"><h1>🌳 Дерево баффов</h1></header>
+      <div class="tree-shards" id="treeShards"></div>
+      <div class="list" id="treeList"></div>
+    </div>
+
+    <!-- ================= СКИНЫ ================= -->
+    <div class="screen" id="screen-skins">
+      <header class="subhead"><h1>🎨 Скины</h1></header>
+      <div class="list" id="skinsList"></div>
+    </div>
+
+    <!-- ================= ТОП ================= -->
+    <div class="screen" id="screen-top">
+      <header class="subhead"><h1>🏆 Топ игроков</h1><button id="refreshTop">Обновить</button></header>
+      <div class="metrics" id="metrics">
+        <button class="metric" data-metric="coins">💰 Монеты</button>
+        <button class="metric" data-metric="cps">⚡ В сек</button>
+        <button class="metric active" data-metric="shards">💠 Осколки</button>
+        <button class="metric" data-metric="prestiges">🔄 Престижи</button>
+      </div>
+      <div class="myrank" id="myRank"></div>
+      <div class="list" id="topList"></div>
+    </div>
+
+    <!-- ================= НАСТРОЙКИ ================= -->
+    <div class="screen" id="screen-settings">
+      <header class="subhead"><h1>⚙️ Настройки</h1></header>
+      <div class="list" id="settingsList"></div>
+    </div>
+
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="game">🎮 Игра</button>
+    <button class="tab" data-tab="tree">🌳 Дерево</button>
+    <button class="tab" data-tab="skins">🎨 Скины</button>
+    <button class="tab" data-tab="top">🏆 Топ</button>
+  </nav>
+
+  <button class="gear" id="gearBtn">⚙️</button>
+
+  <canvas id="fx" class="fx"></canvas>
+  <div class="toast" id="toast"></div>
+
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <div class="modal-msg" id="modalMsg"></div>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" id="modalCancel">Отмена</button>
+        <button class="modal-btn ok" id="modalOk">Да</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="dailyModal">
+    <div class="modal-box">
+      <div class="daily-title">🎁 ЕЖЕДНЕВНАЯ НАГРАДА</div>
+      <div class="modal-msg" id="dailyMsg"></div>
+      <button class="modal-btn ok" id="dailyOk">Забрать</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var GAME_VERSION = '1.11';
+  console.log('Pixel Clicker v' + GAME_VERSION);
+
+  /* ================= Telegram ================= */
+  var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  var initData = (tg && tg.initData) ? tg.initData : '';
+
+  function haptic(kind, style) {
+    if (!settings.haptics) return;
+    try {
+      if (tg && tg.HapticFeedback) {
+        if (kind === 'impact') tg.HapticFeedback.impactOccurred(style || 'light');
+        else if (kind === 'notify') tg.HapticFeedback.notificationOccurred(style || 'success');
+      }
+    } catch (e) {}
+  }
+  var audioCtx = null;
+  function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } }
+  function playTone(freq, dur, type, vol) {
+    if (!settings.sound) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      g.gain.value = vol || 0.04;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.08));
+      o.stop(audioCtx.currentTime + (dur || 0.08) + 0.02);
+    } catch (e) {}
+  }
+  function playTapSound() { playTone(280 + Math.random() * 120, 0.06, 'square', 0.03); }
+  function playCoinSound() { playTone(680, 0.1, 'triangle', 0.05); }
+  function playBuySound() { playTone(440, 0.08, 'sine', 0.05); }
+  // надёжный тап: pointerdown (быстрый) + click (запасной), без двойного срабатывания
+  function bindTap(el, fn) {
+    var sawPointer = false, t = null;
+    el.addEventListener('pointerdown', function (e) {
+      sawPointer = true;
+      clearTimeout(t);
+      t = setTimeout(function () { sawPointer = false; }, 600);
+      fn(e);
+    });
+    el.addEventListener('click', function (e) {
+      if (sawPointer) { sawPointer = false; return; }
+      fn(e);
+    });
+  }
+  function confirmAction(msg, cb) {
+    // собственный модальный диалог — работает и в браузере, и в Telegram WebView
+    var modalEl = document.getElementById('modal');
+    var modalMsgEl = document.getElementById('modalMsg');
+    var modalOkEl = document.getElementById('modalOk');
+    var modalCancelEl = document.getElementById('modalCancel');
+    var close = function (result) {
+      modalEl.classList.remove('show');
+      modalOkEl.onclick = null;
+      modalCancelEl.onclick = null;
+      modalEl.onclick = null;
+      if (cb) cb(result);
+    };
+    modalMsgEl.textContent = msg;
+    modalOkEl.onclick = function () { close(true); };
+    modalCancelEl.onclick = function () { close(false); };
+    modalEl.onclick = function (e) { if (e.target === modalEl) close(false); };
+    modalEl.classList.add('show');
+  }
+  function showInfo(msg) {
+    var modalEl = document.getElementById('modal');
+    var modalMsgEl = document.getElementById('modalMsg');
+    var modalOkEl = document.getElementById('modalOk');
+    var modalCancelEl = document.getElementById('modalCancel');
+    var close = function () {
+      modalEl.classList.remove('show');
+      modalOkEl.textContent = 'Да';
+      modalCancelEl.style.display = '';
+      modalOkEl.onclick = null;
+      modalEl.onclick = null;
+    };
+    modalMsgEl.textContent = msg;
+    modalCancelEl.style.display = 'none';
+    modalOkEl.textContent = 'Понятно';
+    modalOkEl.onclick = close;
+    modalEl.onclick = function (e) { if (e.target === modalEl) close(); };
+    modalEl.classList.add('show');
+  }
+  function applyTheme() {
+    var p = (tg && tg.themeParams) || {};
+    var set = function (n, v) { if (v) document.documentElement.style.setProperty(n, v); };
+    set('--bg', p.bg_color || '#0f1220');
+    set('--panel', p.secondary_bg_color || '#1a1f33');
+    set('--text', p.text_color || '#e8eaf6');
+    set('--hint', p.hint_color || '#8a92b8');
+    set('--accent', p.button_color || '#4ddb4d');
+    set('--accent-text', p.button_text_color || '#07130a');
+    set('--border', p.section_separator_color || '#2b3257');
+  }
+  function initTg() {
+    if (!tg) return;
+    try { tg.ready(); } catch (e) {}
+    try { tg.expand(); } catch (e) {}
+    try { var p = tg.themeParams || {}; if (p.bg_color) { tg.setHeaderColor(p.bg_color); tg.setBackgroundColor(p.bg_color); } } catch (e) {}
+  }
+  applyTheme();
+  initTg();
+
+  /* ================= API ================= */
+  var serverOnline = false;
+  function api(path, body) {
+    return fetch(path, {
+      method: body ? 'POST' : 'GET',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  /* ================= Pixel art ================= */
+  function renderSprite(canvas, map, palette) {
+    var rows = map.length, cols = map[0].length;
+    canvas.width = cols; canvas.height = rows;
+    var ctx = canvas.getContext('2d');
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        var c = palette[map[y][x]];
+        if (c) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+      }
+    }
+  }
+
+  var COIN_MAP = ['..OOOO..', '.OYYYYO.', 'OYYYYYYO', 'OYYGGYYO', 'OYYGGYYO', 'OYYYYYYO', '.OYYYYO.', '..OOOO..'];
+  var COIN_PAL = { O: '#8a6a1a', Y: '#ffd21f', G: '#ffe98a' };
+
+  /* ================= Скины (уникальные спрайты) ================= */
+  var CAT = [
+    '....D..........D....',
+    '...DDD........DDD...',
+    '...DPD........DPD...',
+    '..DDDDD......DDDDD..',
+    '.DDDDDDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDDDDDD',
+    'DFFFFFFFFFFFFFFFFFFD',
+    'DFFWWWWFFFFFFWWWWFFD',
+    'DFFWEEWFFFFFFWEEWFFD',
+    'DFFWSEWFFFFFFWESWFFD',
+    'DFFWWWWFFFFFFWWWWFFD',
+    'DFFFFFFFFFFFFFFFFFFD',
+    'DFFFFCCFFNNFFCCFFFFD',
+    'DFFFFFFFFMMFFFFFFFFD',
+    'DFFFFFFFFFFFFFFFFFFD',
+    '.DDDDDDDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDDDDD..',
+    '...DDDDDDDDDDDDDD...',
+    '...DDWWWWWWWWWWDD...',
+    '....DDDDDDDDDDDD....'
+  ];
+  var SLIME = [
+    '................',
+    '....DDDDDDDD....',
+    '..DD########DD..',
+    '.D############D.',
+    '.D############D.',
+    'D##############D',
+    'D####WW####WW##D',
+    'D###WEWW##WEW##D',
+    'D####WW####WW##D',
+    'D##############D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D####MMMMMM####D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var GHOST = [
+    '................',
+    '....DDDDDDDD....',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D####CC####CC##D',
+    'D#####MMMM#####D',
+    'D##############D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '................'
+  ];
+  var MUSHROOM = [
+    '................',
+    '....DDDDDDDD....',
+    '..DDRRRRRRRRDD..',
+    '.DRRRWWRRRRWWRD.',
+    '.DRRWWRRRRRWWWRD',
+    'DRRRRRRRRRRRRRRD',
+    'DRRRRRRRRRRRRRRD',
+    'DDRRRRRRRRRRRRDD',
+    '...DDDDDDDDDD...',
+    '....DWWWWWWWD...',
+    '....DWWWWWWWD...',
+    '....DWWCCWWWD...',
+    '....DWWWWWWWD...',
+    '....DWWWWWWWD...',
+    '....DWWWWWWWD...',
+    '...DDDDDDDDDD...'
+  ];
+  var ROBOT = [
+    '.......DD.......',
+    '......DSSD......',
+    '.......DD.......',
+    '....DDDDDDDD....',
+    '...DDDDDDDDDD...',
+    '..DDDDDDDDDDDD..',
+    '..DWWDDDDDDWWD..',
+    '..DWWDDDDDDWWD..',
+    '..DDDDDDDDDDDD..',
+    '..DDDDGGGGDDDD..',
+    '..DDDDGGGGDDDD..',
+    '..DDDDDDDDDDDD..',
+    '...DDDDDDDDDD...',
+    '....DDDDDDDD....',
+    '...DDDDDDDDDD...',
+    '...DDDDDDDDDD...'
+  ];
+  var SNOWMAN = [
+    '.....DDDDDD.....',
+    '.....DDDDDD.....',
+    '.....DDDDDD.....',
+    '....DDDDDDDD....',
+    '...DDDDDDDDDD...',
+    '..DD########DD..',
+    '.D############D.',
+    'D######EE######D',
+    'D######EE######D',
+    'D#####OOOO#####D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '....DDDDDDDD....'
+  ];
+  var ALIEN = [
+    '................',
+    '....DDDDDDDD....',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####WW####WW##D',
+    'D###WWWW##WWWW#D',
+    'D###WWEW##WEWW#D',
+    'D###WWWW##WWWW#D',
+    'D##############D',
+    'D##############D',
+    'D#####MMMM#####D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '....D....D......'
+  ];
+  var STAR = [
+    '.......DD.......',
+    '......D##D......',
+    '......D##D......',
+    '......D##D......',
+    '.....D####D.....',
+    '.....D####D.....',
+    '....D######D....',
+    'DDDDD######DDDDD',
+    '....D######D....',
+    '.....D####D.....',
+    '.....D####D.....',
+    '......D##D......',
+    '......D##D......',
+    '......D##D......',
+    '.......DD.......',
+    '................'
+  ];
+  var COIN2 = [
+    '....DDDDDDDD....',
+    '..DDDYYYYYYDDD..',
+    '.DDYYYYYYYYYYDD.',
+    '.DYYYYYYYYYYYYD.',
+    'DYYYYYYYYYYYYYYD',
+    'DYEEYYYYYYYYEEYD',
+    'DYEEYYYYYYYYEEYD',
+    'DYYYYYYYYYYYYYYD',
+    'DYYYYYYYYYYYYYYD',
+    'DYCCYYYYYYYYCCYD',
+    'DYMMMMYYYYMMMMYD',
+    'DYYYYYYYYYYYYYYD',
+    '.DYYYYYYYYYYYYD.',
+    '.DDYYYYYYYYYYDD.',
+    '..DDDYYYYYYDDD..',
+    '....DDDDDDDD....'
+  ];
+  var CUBE = [
+    '................',
+    '..DDDDDDDDDDDD..',
+    '.D############D.',
+    '.D############D.',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D##############D',
+    'D####CC####CC##D',
+    'D#####MMMM#####D',
+    'D##############D',
+    'D##############D',
+    '.D############D.',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var DRAGON = [
+    '..D..........D..',
+    '..DD........DD..',
+    '...DD......DD...',
+    '....DDDDDDDD....',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####WW####WW##D',
+    'D####WEW##WEW##D',
+    'D####WW####WW##D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D####MMMMMM####D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var CYBER = [
+    '.......DD.......',
+    '......DSSD......',
+    '.......DD.......',
+    '..D..........D..',
+    '.DDD........DDD.',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'DFWWDDDDDDDDWWFD',
+    'DFWEWDDDDDDWEWFD',
+    'DFWWDDDDDDDDWWFD',
+    'DDDDDDDDDDDDDDDD',
+    'DDDDDDDNNNDDDDDD',
+    'DDDDDDDMMMDDDDDD',
+    'DDDDDDDDDDDDDDDD',
+    '.DDDDDDDDDDDDDD.',
+    '.DDDDDDDDDDDDDD.'
+  ];
+  var PANDA = [
+    '..D..........D..',
+    '.DDD........DDD.',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'D##############D',
+    'D#EEE######EEE#D',
+    'D#ESE######ESE#D',
+    'D#EEE######EEE#D',
+    'D##############D',
+    'D##############D',
+    'D######NN######D',
+    'D###CC####CC###D',
+    'D######MM######D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var FOX = [
+    '..D..........D..',
+    '.DDD........DDD.',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D####WWWWWW####D',
+    'D####WWWWWW####D',
+    'D#####NNNN#####D',
+    'D#####MMMM#####D',
+    'D###CC####CC###D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var PENGUIN = [
+    '................',
+    '.....DDDDDD.....',
+    '....DDDDDDDD....',
+    '...DDDDDDDDDD...',
+    '..DDDDDDDDDDDD..',
+    '..DD########DD..',
+    '.DD##########DD.',
+    '.DD###EE####DD..',
+    '.DD###EE####DD..',
+    '.DD####OO####DD.',
+    '.DD##########DD.',
+    '.DD####WW####DD.',
+    '.DD####WW####DD.',
+    '..DD########DD..',
+    '...DDDDDDDDDD...',
+    '....DDDDDDDD....'
+  ];
+  var PUMPKIN = [
+    '................',
+    '.....DDDDDD.....',
+    '.....DDDDDD.....',
+    '....DDDDDDDD....',
+    '...DDDDDDDDDD...',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D#####MMMM#####D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var CACTUS = [
+    '......FFFF......',
+    '......FFFF......',
+    '......FFFF......',
+    '........DD......',
+    '........DD......',
+    '..DD....DD....DD',
+    '..DDD...DD...DDD',
+    '..DDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDD.',
+    '..DDDDDDDDDDDDD.',
+    '...DDDDDDDDDDD..',
+    '...DDDDDDDDDDD..',
+    '....DDDDDDDD....'
+  ];
+  var UNICORN = [
+    '.......DD.......',
+    '......DPD.......',
+    '......DDD.......',
+    '.....DDDDD......',
+    '....DDDDDDD.....',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D####MMMMMM####D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var CHICK = [
+    '................',
+    '......DDDD......',
+    '.....DYYYYD.....',
+    '....DYYYYYYD....',
+    '...DYYYYYYYYD...',
+    '..DYYYYYYYYYYD..',
+    '..DYEEYYYYEEYD..',
+    '..DYEEYYYYEEYD..',
+    '..DYYYYYYYYYYD..',
+    '..DYYYOOOYYYYD..',
+    '..DYYYYYYYYYYD..',
+    '...DYYYYYYYYD...',
+    '....DYYYYYYD....',
+    '.....DYYYYD.....',
+    '......DDDD......',
+    '................'
+  ];
+  var RABBIT = [
+    '..D..........D..',
+    '..DD........DD..',
+    '..DPD......DPD..',
+    '..DDD......DDD..',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D####CC####CC##D',
+    'D######NNN#####D',
+    'D######NNN#####D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..'
+  ];
+  var FROG = [
+    '................',
+    '....DD....DD....',
+    '...D##D..D##D...',
+    '...DWWD..DWWD...',
+    '...DWWD..DWWD...',
+    '...DDDDDDDDDD...',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####MMMMMM####D',
+    'D##############D',
+    'D###CC####CC###D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '................'
+  ];
+  var OWL = [
+    '................',
+    '....DDDDDDDD....',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####WW####WW##D',
+    'D###WEEW##WEEW#D',
+    'D###WEEW##WEEW#D',
+    'D###WWWW##WWWW#D',
+    'D##############D',
+    'D######OO######D',
+    'D##############D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '................'
+  ];
+  var HEDGEHOG = [
+    '..D..D..D..D..D.',
+    '...DDDDDDDDDD...',
+    '..DD########DD..',
+    '.D############D.',
+    'D##############D',
+    'D####EE####EE##D',
+    'D####EE####EE##D',
+    'D##############D',
+    'D######NN######D',
+    'D##############D',
+    'D####CC####CC##D',
+    'D##############D',
+    'D##############D',
+    '.D############D.',
+    '..DDDDDDDDDDDD..',
+    '................'
+  ];
+
+  var SKINS = [
+    { id: 'slime',    name: 'Слайм',        category: 'default', desc: 'Пружинистый зелёный',       bonus: {},                       map: SLIME,    palette: { D:'#1c2b1c','#':'#4ddb4d',W:'#ffffff',E:'#16202a',C:'#ff8fae',M:'#1c2b1c' } },
+    { id: 'cat',      name: 'Котёнок',      category: 'prestige', prestige: 2,  desc: 'Милый пушистик',          bonus: { click: 1.5 },          map: CAT,      palette: { D:'#3a2514',F:'#f5a94e',P:'#ffb3c6',W:'#ffffff',E:'#4a2f1a',S:'#ffffff',N:'#ff7a9c',C:'#ff9eb5',M:'#3a2514' } },
+    { id: 'ghost',    name: 'Призрак',      category: 'coins',    coins: 20000,  desc: 'Мягкое привидение',        bonus: { click: 1.5 },          map: GHOST,    palette: { D:'#7f8fb3','#':'#f2f5ff',E:'#2b2f45',C:'#ffb3c6',M:'#2b2f45' } },
+    { id: 'mushroom', name: 'Грибок',       category: 'coins',    coins: 300000, desc: 'Красная шапочка',          bonus: { cps: 2 },              map: MUSHROOM, palette: { D:'#5a1414',R:'#e8483f',W:'#ffffff',C:'#ffb3c6' } },
+    { id: 'robot',    name: 'Робот',        category: 'coins',    coins: 5000000, desc: 'Железный друг',             bonus: { click: 2, cps: 1.5 },  map: ROBOT,    palette: { D:'#3a4256',S:'#7ff0e0',W:'#7ff0e0',G:'#4a5568' } },
+    { id: 'snowman',  name: 'Снеговик',     category: 'prestige', prestige: 10, desc: 'Холодный парень',           bonus: { cps: 2.5 },            map: SNOWMAN,  palette: { D:'#5a7a9a','#':'#ffffff',E:'#2b2f45',O:'#ff8a3d',C:'#ffb3c6' } },
+    { id: 'alien',    name: 'Пришелец',     category: 'coins',    coins: 60000000, desc: 'Гость из космоса',          bonus: { click: 2, cps: 2 },    map: ALIEN,    palette: { D:'#1c3d2a','#':'#6ee86e',W:'#ffffff',E:'#0a0a14',M:'#0a0a14' } },
+    { id: 'panda',    name: 'Панда',        category: 'coins',    coins: 150000, desc: 'Чёрно-белый милашка',       bonus: { click: 1.5, cps: 1.5 }, map: PANDA,   palette: { D:'#1a1a1a','#':'#ffffff',E:'#1a1a1a',S:'#ffffff',N:'#1a1a1a',C:'#ffb3c6',M:'#1a1a1a' } },
+    { id: 'fox',      name: 'Лиса',         category: 'coins',    coins: 2000000, desc: 'Хитрая рыжуля',             bonus: { luck: 2 },              map: FOX,     palette: { D:'#5a2a10','#':'#ff8a3d',E:'#2a1408',W:'#ffe9d6',N:'#2a1408',M:'#2a1408',C:'#ffb3c6' } },
+    { id: 'penguin',  name: 'Пингвин',      category: 'prestige', prestige: 6,  desc: 'Король льда',               bonus: { cps: 2 },               map: PENGUIN, palette: { D:'#16202a','#':'#2b3a4a',E:'#ffffff',O:'#ff8a3d',W:'#f2f5ff' } },
+    { id: 'pumpkin',  name: 'Тыква',        category: 'coins',    coins: 10000000, desc: 'Осенняя улыбка',           bonus: { click: 2.5 },           map: PUMPKIN, palette: { D:'#5a2000','#':'#ff7a1a',E:'#3a1200',M:'#3a1200',C:'#ffb3c6' } },
+    { id: 'cactus',   name: 'Кактус',       category: 'prestige', prestige: 15, desc: 'Колючий, но добрый',        bonus: { cps: 3 },               map: CACTUS,  palette: { D:'#1c3d1c','#':'#3fbf3f',F:'#ff6bae' } },
+    { id: 'unicorn',  name: 'Единорог',     category: 'coins',    coins: 150000000, desc: 'Магия и радуга',           bonus: { all: 2.5 },             map: UNICORN, palette: { D:'#b08fd4','#':'#f2ecff',P:'#ff8fae',E:'#3a2a4a',C:'#ffb3c6',M:'#3a2a4a' } },
+    { id: 'chick',    name: 'Цыплёнок',     category: 'coins',    coins: 80000,   desc: 'Жёлтый комочек',           bonus: { click: 1.5 },          map: CHICK,    palette: { D:'#c07a00',Y:'#ffd21f',E:'#3a2a1a',O:'#ff8a3d' } },
+    { id: 'rabbit',   name: 'Кролик',       category: 'coins',    coins: 3000000, desc: 'Длинные ушки',             bonus: { click: 2, cps: 1.5 },  map: RABBIT,   palette: { D:'#8a7a9a','#':'#ffffff',P:'#ffb3c6',E:'#3a2a4a',N:'#ff8fae',C:'#ffb3c6' } },
+    { id: 'gold',     name: 'Золотой',      category: 'stars',    price: 25,    desc: 'Слиток с душой',            bonus: { all: 1.5 },            map: COIN2,    palette: { D:'#8a6a1a',Y:'#ffd21f',E:'#5a3a00',C:'#ff9d00',M:'#5a3a00' } },
+    { id: 'neon',     name: 'Неон',         category: 'stars',    price: 50,    desc: 'Светится в темноте',        bonus: { cps: 2.5 },            map: CUBE,     palette: { D:'#2a0a4a','#':'#b14dff',E:'#0e001c',C:'#ff4de1',M:'#0e001c' } },
+    { id: 'rainbow',  name: 'Радужная звезда', category: 'stars', price: 100,  desc: 'Меняет все цвета',          bonus: { click: 2, cps: 2, luck: 2 }, map: STAR, animated: true },
+    { id: 'dragon',   name: 'Дракон',       category: 'stars',    price: 250,   desc: 'Древняя мощь',              bonus: { all: 3 },              map: DRAGON,   palette: { D:'#1c3d1c','#':'#3fbf3f',W:'#ffffff',E:'#0a0a14',C:'#ff9eb5',M:'#0a0a14' } },
+    { id: 'cyber',    name: 'Кибер',        category: 'prestige', prestige: 25, desc: 'Кот из будущего',           bonus: { click: 2, cps: 2, luck: 1.5 }, map: CYBER, palette: { D:'#0a2a3a',F:'#2ad4c4',W:'#ffffff',E:'#062a2a',N:'#ff7a9c',M:'#062a2a',C:'#ff4de1',S:'#7ff0e0' } },
+    { id: 'frog',     name: 'Лягушка',      category: 'coins',    coins: 400000,   desc: 'Ква-ква, зелёная',         bonus: { click: 1.5, cps: 1.5 }, map: FROG,     palette: { D:'#1c3d1c','#':'#4ddb4d',W:'#ffffff',M:'#1c3d1c',C:'#ff8fae' } },
+    { id: 'owl',      name: 'Сова',         category: 'prestige', prestige: 8,  desc: 'Мудрая и сонная',           bonus: { luck: 2 },              map: OWL,      palette: { D:'#5a3a1a','#':'#8a5a2a',W:'#ffffff',E:'#2a1408',O:'#ff8a3d' } },
+    { id: 'hedgehog', name: 'Ёжик',         category: 'coins',    coins: 2500000, desc: 'Колючий комочек',           bonus: { click: 2 },             map: HEDGEHOG, palette: { D:'#5a3a1a','#':'#a06a2a',E:'#2a1408',N:'#2a1408',C:'#ffb3c6' } }
+  ];
+  function skinById(id) {
+    for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
+    return SKINS[0];
+  }
+  function getPalette(skin, t) {
+    if (skin.animated) {
+      var hue = ((t || 0) / 22) % 360;
+      return { D: '#1c2b1c', '#': 'hsl(' + hue + ',90%,55%)' };
+    }
+    return skin.palette;
+  }
+
+  var petCanvas = document.getElementById('petCanvas');
+  petCanvas.style.width = '210px';
+  petCanvas.style.height = '210px';
+  function renderPet(skin, t) { renderSprite(petCanvas, skin.map, getPalette(skin, t)); }
+  function updateHint() {
+    var el = document.getElementById('hint');
+    if (el) el.textContent = 'ТАПАЙ ' + activeSkin().name.toUpperCase() + '!';
+  }
+
+  var goldenCanvas = document.getElementById('goldenCanvas');
+  renderSprite(goldenCanvas, COIN_MAP, COIN_PAL);
+  goldenCanvas.style.width = '64px';
+  goldenCanvas.style.height = '64px';
+
+  var coinSprite = document.createElement('canvas');
+  renderSprite(coinSprite, COIN_MAP, COIN_PAL);
+
+  /* ================= Настройки ================= */
+  var PRESTIGE_BASE = 2000;  // монет за ход -> 1 осколок
+  var MAX_SHARDS = 20;       // максимум осколков за один престиж
+
+  var UPGRADES = [
+    { id: 'click1', group: 'click', icon: '👆', name: 'Сила клика',   desc: '+1 к силе клика',      base: 15,   mult: 1.15 },
+    { id: 'click2', group: 'click', icon: '🔨', name: 'Мощный удар',  desc: '+8 к силе клика',      base: 300,  mult: 1.18 },
+    { id: 'click3', group: 'click', icon: '🎯', name: 'Крит. шанс',   desc: '+4% шанс крита (до 60%)', base: 1000, mult: 1.4 },
+    { id: 'click4', group: 'click', icon: '💥', name: 'Крит. урон',   desc: '+50% к урону крита',   base: 3000, mult: 1.5 },
+    { id: 'click5', group: 'click', icon: '💎', name: 'Множитель',    desc: 'x2 к силе клика',      base: 10000, mult: 3, max: 20 },
+    { id: 'click6', group: 'click', icon: '💪', name: 'Сокрушитель',  desc: '+50 к силе клика',     base: 60000, mult: 1.22 },
+    { id: 'click7', group: 'click', icon: '🎲', name: 'Крит-мастер',  desc: '+25% к урону крита',   base: 50000, mult: 1.6 },
+    { id: 'click8', group: 'click', icon: '💠', name: 'Двойной множитель', desc: 'x2 к силе клика', base: 150000, mult: 3, max: 15 },
+    { id: 'auto1',  group: 'auto',  icon: '🤖', name: 'Авто-бот',     desc: '+1 монета в секунду',  base: 50,   mult: 1.15 },
+    { id: 'auto2',  group: 'auto',  icon: '🐱', name: 'Авто-помощник', desc: '+6 монет в секунду',  base: 400,  mult: 1.15 },
+    { id: 'auto3',  group: 'auto',  icon: '⭐', name: 'Звёздная ферма', desc: '+30 монет в секунду', base: 3000,  mult: 1.15 },
+    { id: 'auto4',  group: 'auto',  icon: '🔬', name: 'Лаборатория',  desc: '+150 монет в секунду', base: 20000, mult: 1.15 },
+    { id: 'auto5',  group: 'auto',  icon: '🌀', name: 'Портал',       desc: '+800 монет в секунду', base: 120000, mult: 1.15 },
+    { id: 'auto6',  group: 'auto',  icon: '⚙️', name: 'Авто-множитель', desc: 'x1.5 к автодоходу',  base: 40000, mult: 1.5, max: 20 },
+    { id: 'auto7',  group: 'auto',  icon: '🏭', name: 'Мега-фабрика',  desc: '+4000 монет в секунду', base: 600000, mult: 1.18 },
+    { id: 'auto8',  group: 'auto',  icon: '🌌', name: 'Гига-портал',   desc: '+20000 монет в секунду', base: 3000000, mult: 1.2 },
+    { id: 'auto9',  group: 'auto',  icon: '⚙️', name: 'Авто-множитель 2', desc: 'x1.5 к автодоходу', base: 400000, mult: 2, max: 15 },
+    { id: 'luck1',  group: 'luck',  icon: '💰', name: 'Золотая жила', desc: '+40% к ценности золотой монеты', base: 300, mult: 1.35 },
+    { id: 'luck2',  group: 'luck',  icon: '🧲', name: 'Магнит',       desc: '+2 сек жизни золотой монеты', base: 250, mult: 1.3 },
+    { id: 'luck3',  group: 'luck',  icon: '🎰', name: 'Частый куш',   desc: 'Золотая монета появляется на 12% чаще', base: 600, mult: 1.35 },
+    { id: 'luck4',  group: 'luck',  icon: '🍀', name: 'Удача-множитель', desc: 'x1.4 к ценности золотой монеты', base: 4000, mult: 1.45, max: 20 },
+    { id: 'luck5',  group: 'luck',  icon: '🦾', name: 'Авто-сборщик',   desc: 'Сам собирает золотые монеты (без тапа)', base: 20000, mult: 2 },
+    { id: 'luck6',  group: 'luck',  icon: '🤑', name: 'Золотая лихорадка', desc: '+30% к ценности золотой монеты', base: 15000, mult: 1.5 },
+    { id: 'luck7',  group: 'luck',  icon: '🔁', name: 'Ловец монет',   desc: 'Золотая монета появляется на 10% чаще', base: 20000, mult: 1.5 },
+    { id: 'luck8',  group: 'luck',  icon: '💎', name: 'Золотой поток', desc: 'x1.4 к ценности золотой монеты', base: 80000, mult: 1.6, max: 15 }
+  ];
+
+  var TREE = [
+    { id: 't1',  branch: 'click',  tier: 1, icon: '👆', name: 'Острые когти',      desc: '+2 к силе клика',     base: 1, mult: 1.6, effect: { type: 'clickAdd', val: 2 } },
+    { id: 't2',  branch: 'click',  tier: 2, icon: '⚡', name: 'Молниеносный клик', desc: '+10% к силе клика',   base: 2, mult: 1.7, effect: { type: 'clickPct', val: 0.10 } },
+    { id: 't3',  branch: 'click',  tier: 3, icon: '🎯', name: 'Смертельный удар',  desc: '+3% шанс крита',      base: 3, mult: 1.8, effect: { type: 'critChance', val: 0.03 } },
+    { id: 't4',  branch: 'auto',   tier: 1, icon: '⚙️', name: 'Шестерёнки',        desc: '+8% к автодоходу',    base: 1, mult: 1.6, effect: { type: 'cpsPct', val: 0.08 } },
+    { id: 't5',  branch: 'auto',   tier: 2, icon: '🏭', name: 'Конвейер',          desc: '+12% к автодоходу',   base: 2, mult: 1.7, effect: { type: 'cpsPct', val: 0.12 } },
+    { id: 't6',  branch: 'auto',   tier: 3, icon: '♾️', name: 'Вечный двигатель',  desc: '+18% к автодоходу',   base: 4, mult: 1.8, effect: { type: 'cpsPct', val: 0.18 } },
+    { id: 't7',  branch: 'luck',   tier: 1, icon: '💰', name: 'Золотая жила',      desc: '+12% к золотым монетам', base: 1, mult: 1.6, effect: { type: 'luckPct', val: 0.12 } },
+    { id: 't8',  branch: 'luck',   tier: 2, icon: '🗺️', name: 'Кладоискатель',     desc: 'Золотые монеты чаще',  base: 2, mult: 1.7, effect: { type: 'luckRate', val: 0.12 } },
+    { id: 't9',  branch: 'luck',   tier: 3, icon: '🧲', name: 'Магнит',            desc: '+1 сек жизни золотой монеты', base: 2, mult: 1.6, effect: { type: 'luckTime', val: 1 } },
+    { id: 't10', branch: 'global', tier: 1, icon: '💰', name: 'Мастер монет',      desc: '+5% ко всем доходам',  base: 2, mult: 1.7, effect: { type: 'allPct', val: 0.05 } },
+    { id: 't11', branch: 'global', tier: 2, icon: '🌙', name: 'Неспящий',          desc: '+25% к офлайн-доходу', base: 2, mult: 1.6, effect: { type: 'offline', val: 0.25 } },
+    { id: 't12', branch: 'global', tier: 3, icon: '✨', name: 'Благословение',     desc: '+6% ко всем доходам',  base: 3, mult: 1.8, effect: { type: 'allPct', val: 0.06 } }
+  ];
+
+  /* ================= Состояние ================= */
+  var SAVE_KEY = 'pixelClickerSave_v3';
+  var state = {
+    coins: 0, totalCoins: 0, runCoins: 0, clicks: 0,
+    levels: {}, tree: {}, shards: 0, prestige: 0, prestiges: 0,
+    activeSkin: 'slime', coinSkins: {}, lastDaily: '', dailyStreak: 0,
+    last: Date.now(), started: Date.now()
+  };
+  var ownedPaid = {};
+
+  function num(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; }
+  function load() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      state.coins = num(s.coins, 0);
+      state.totalCoins = num(s.totalCoins, state.coins);
+      state.runCoins = num(s.runCoins, 0);
+      state.clicks = num(s.clicks, 0);
+      state.levels = s.levels || {};
+      state.tree = s.tree || {};
+      state.shards = num(s.shards, 0);
+      state.prestige = num(s.prestige, 0);
+      state.prestiges = num(s.prestiges, 0);
+      state.activeSkin = s.activeSkin || 'slime';
+      state.coinSkins = s.coinSkins || {};
+      state.lastDaily = s.lastDaily || '';
+      state.dailyStreak = num(s.dailyStreak, 0);
+      state.last = num(s.last, Date.now());
+      state.started = num(s.started, Date.now());
+    } catch (e) {}
+  }
+  function save() {
+    state.last = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+    setSaveInfo();
+  }
+  function setSaveInfo() {
+    var el = document.getElementById('saveInfo');
+    if (el) el.textContent = 'Кликов: ' + fmt(state.clicks) + ' · сохранено';
+  }
+
+  /* ================= Настройки ================= */
+  var settings = { sound: true, haptics: true, fx: true };
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem('pixelClickerSettings_v1');
+      if (raw) {
+        var s = JSON.parse(raw);
+        settings.sound = s.sound !== false;
+        settings.haptics = s.haptics !== false;
+        settings.fx = s.fx !== false;
+      }
+    } catch (e) {}
+  }
+  function saveSettings() {
+    try { localStorage.setItem('pixelClickerSettings_v1', JSON.stringify(settings)); } catch (e) {}
+  }
+
+  /* ================= Формулы ================= */
+  function fmt(n) {
+    if (!isFinite(n)) return '0';
+    if (n < 0) return '-' + fmt(-n);
+    if (n < 1000) return Math.floor(n).toString();
+    var units = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+    var u = -1, v = n;
+    while (v >= 1000 && u < units.length - 1) { v /= 1000; u++; }
+    var s = v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
+    return s + units[u];
+  }
+  function activeSkin() { return skinById(state.activeSkin); }
+  function skinB() { return activeSkin().bonus || {}; }
+
+  function treeAgg() {
+    var a = { clickAdd: 0, clickPct: 0, cpsPct: 0, luckPct: 0, allPct: 0, critChance: 0, critMult: 0, luckRate: 0, luckTime: 0, offline: 0 };
+    for (var i = 0; i < TREE.length; i++) {
+      var n = TREE[i], lvl = state.tree[n.id] || 0;
+      if (!lvl) continue;
+      var e = n.effect;
+      if (e.type === 'clickAdd') a.clickAdd += e.val * lvl;
+      else if (e.type === 'clickPct') a.clickPct += e.val * lvl;
+      else if (e.type === 'cpsPct') a.cpsPct += e.val * lvl;
+      else if (e.type === 'luckPct') a.luckPct += e.val * lvl;
+      else if (e.type === 'allPct') a.allPct += e.val * lvl;
+      else if (e.type === 'critChance') a.critChance += e.val * lvl;
+      else if (e.type === 'critMult') a.critMult += e.val * lvl;
+      else if (e.type === 'luckRate') a.luckRate += e.val * lvl;
+      else if (e.type === 'luckTime') a.luckTime += e.val * lvl;
+      else if (e.type === 'offline') a.offline += e.val * lvl;
+    }
+    return a;
+  }
+
+  function clickPower() {
+    var a = treeAgg();
+    var base = 1 + (state.levels.click1 || 0) * 1 + (state.levels.click2 || 0) * 8 + (state.levels.click6 || 0) * 50 + a.clickAdd;
+    var mult = Math.pow(2, state.levels.click5 || 0) * Math.pow(2, state.levels.click8 || 0);
+    return base * mult * (1 + a.clickPct) * (skinB().click || 1) * (1 + a.allPct) * (skinB().all || 1);
+  }
+  function critChance() {
+    var a = treeAgg();
+    return Math.min(0.6, 0.04 * (state.levels.click3 || 0) + a.critChance);
+  }
+  function critMult() {
+    var a = treeAgg();
+    return 1.5 + 0.5 * (state.levels.click4 || 0) + 0.25 * (state.levels.click7 || 0) + a.critMult;
+  }
+  function cpsValue() {
+    var a = treeAgg();
+    var pow = { auto1: 1, auto2: 6, auto3: 30, auto4: 150, auto5: 800, auto7: 4000, auto8: 20000 };
+    var base = 0;
+    for (var id in pow) base += (state.levels[id] || 0) * pow[id];
+    var mult = Math.pow(1.5, state.levels.auto6 || 0) * Math.pow(1.5, state.levels.auto9 || 0);
+    return base * mult * (1 + a.cpsPct) * (skinB().cps || 1) * (1 + a.allPct) * (skinB().all || 1);
+  }
+  function goldenValue() {
+    var a = treeAgg();
+    var base = Math.max(cpsValue() * 40 + clickPower() * 15, 5);
+    var mult = (1 + 0.4 * (state.levels.luck1 || 0) + 0.3 * (state.levels.luck6 || 0)) *
+      Math.pow(1.4, state.levels.luck4 || 0) * Math.pow(1.4, state.levels.luck8 || 0) *
+      (1 + a.luckPct) * (skinB().luck || 1) * (1 + a.allPct) * (skinB().all || 1);
+    return base * mult;
+  }
+  function goldenInterval() {
+    var a = treeAgg();
+    return 14 * Math.pow(0.88, state.levels.luck3 || 0) * Math.pow(0.90, state.levels.luck7 || 0) / (1 + a.luckRate);
+  }
+  function goldenLifetime() {
+    var a = treeAgg();
+    return 6 + (state.levels.luck2 || 0) * 2 + a.luckTime;
+  }
+  function costOf(u) { return Math.ceil(u.base * Math.pow(u.mult, state.levels[u.id] || 0)); }
+  function treeCost(n) { return Math.ceil(n.base * Math.pow(n.mult, state.tree[n.id] || 0)); }
+  function prestigeGain() {
+    if (state.runCoins < PRESTIGE_BASE) return 0;
+    var g = Math.floor(Math.sqrt(state.runCoins / PRESTIGE_BASE));
+    return Math.min(g, MAX_SHARDS);
+  }
+  function addCoins(n) { state.coins += n; state.totalCoins += n; state.runCoins += n; }
+
+  /* ================= Престиж ================= */
+  function updatePrestigeBar() {
+    var el = document.getElementById('prestigeBar');
+    var gain = prestigeGain();
+    el.innerHTML = '✨ ПРЕСТИЖ — <b>нажми сюда</b> · осколков <b>' + fmt(state.shards) + '</b> · сделано <b>' + fmt(state.prestiges) + '</b>' +
+      '<small>' + (gain > 0 ? 'Тапни по этой кнопке: сбросишь монеты и улучшения, получишь <b>+' + gain + '</b> осколков (макс. ' + MAX_SHARDS + ')' : 'Тапни сюда, чтобы сделать престиж — когда накопишь монеты за ход') + '</small>';
+  }
+  document.getElementById('prestigeBar').addEventListener('click', function () {
+    var gain = prestigeGain();
+    if (gain < 1) { toast('Набери больше монет за ход, чтобы сделать престиж'); return; }
+    confirmAction('Это единственный способ сброса прогресса. Монеты и улучшения обнулятся, но ты получишь +' + gain + ' 💠 осколков навсегда (тратятся в «Дереве баффов»). Просто так сбросить нельзя. Продолжить?', function (ok) {
+      if (!ok) return;
+      state.shards += gain;
+      state.prestige += gain;
+      state.prestiges += 1;
+      state.coins = 0;
+      state.runCoins = 0;
+      state.levels = {};
+      save();
+      updatePrestigeBar(); updateUpgrades(); updateTreeUI();
+      submitScore();
+      haptic('notify', 'success');
+      playBuySound();
+      toast('Престиж! +' + gain + ' осколков. Загляни в «Дерево баффов»');
+    });
+  });
+
+  /* ================= Улучшения ================= */
+  var upgradesEl = document.getElementById('upgrades');
+  var cardRefs = {};
+  var groupWraps = {};
+  var buildTabRefs = {};
+  var GROUPS = [
+    { id: 'click', label: '👆 Клик', cls: 'click' },
+    { id: 'auto', label: '🤖 Авто', cls: 'auto' },
+    { id: 'luck', label: '🍀 Удача', cls: 'luck' }
+  ];
+  function buildUpgrades() {
+    var tabsBar = document.createElement('div');
+    tabsBar.className = 'build-tabs';
+    GROUPS.forEach(function (g) {
+      var b = document.createElement('button');
+      b.className = 'build-tab ' + g.cls;
+      b.textContent = g.label;
+      b.addEventListener('click', function () { switchBuild(g.id); });
+      tabsBar.appendChild(b);
+      buildTabRefs[g.id] = b;
+    });
+    upgradesEl.appendChild(tabsBar);
+
+    GROUPS.forEach(function (g) {
+      var wrap = document.createElement('div');
+      wrap.className = 'build-group';
+      var head = document.createElement('div');
+      head.className = 'build-head ' + g.cls;
+      head.innerHTML = '<span class="dot"></span>' + g.label;
+      wrap.appendChild(head);
+      UPGRADES.filter(function (u) { return u.group === g.id; }).forEach(function (u) {
+        var card = document.createElement('div');
+        card.className = 'up';
+        card.innerHTML =
+          '<div class="up-icon">' + u.icon + '</div>' +
+          '<div class="up-info"><div class="up-name"><span>' + u.name + '</span><span class="up-level">0</span></div>' +
+          '<div class="up-desc">' + u.desc + '</div></div>' +
+          '<button class="up-buy">—</button>';
+        wrap.appendChild(card);
+        var ref = { level: card.querySelector('.up-level'), buy: card.querySelector('.up-buy') };
+        ref.buy.addEventListener('click', function () { buy(u); });
+        cardRefs[u.id] = ref;
+      });
+      upgradesEl.appendChild(wrap);
+      groupWraps[g.id] = wrap;
+    });
+    switchBuild('click');
+  }
+  function switchBuild(id) {
+    for (var k in groupWraps) {
+      var active = k === id;
+      buildTabRefs[k].classList.toggle('active', active);
+      groupWraps[k].classList.toggle('hidden', !active);
+    }
+  }
+  function buy(u) {
+    var lvl = state.levels[u.id] || 0;
+    if (u.max && lvl >= u.max) return;
+    var cost = costOf(u);
+    if (state.coins < cost) return;
+    state.coins -= cost;
+    state.levels[u.id] = lvl + 1;
+    haptic('notify', 'success');
+    playBuySound();
+    updateUpgrades();
+  }
+  function updateUpgrades() {
+    for (var i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i], ref = cardRefs[u.id];
+      var lvl = state.levels[u.id] || 0, cost = costOf(u);
+      var maxed = u.max && lvl >= u.max;
+      ref.level.textContent = lvl > 0 ? 'x' + lvl : '';
+      if (maxed) {
+        ref.buy.textContent = 'MAX';
+        ref.buy.classList.add('disabled');
+      } else {
+        ref.buy.textContent = fmt(cost);
+        ref.buy.classList.toggle('disabled', state.coins < cost);
+      }
+    }
+  }
+
+  /* ================= Дерево баффов ================= */
+  var treeListEl = document.getElementById('treeList');
+  var treeRefs = {};
+  var BRANCHES = [
+    { id: 'click', label: '👆 Ветка клика', cls: 'click' },
+    { id: 'auto', label: '🤖 Ветка автодохода', cls: 'auto' },
+    { id: 'luck', label: '🍀 Ветка удачи', cls: 'luck' },
+    { id: 'global', label: '💠 Глобальная ветка', cls: 'global' }
+  ];
+  function buildTree() {
+    var note = document.createElement('div');
+    note.className = 'note';
+    note.textContent = 'Узлы открываются по порядку: сначала 1-й уровень ветки, затем 2-й и 3-й.';
+    treeListEl.appendChild(note);
+    BRANCHES.forEach(function (b) {
+      var head = document.createElement('div');
+      head.className = 'branch-title ' + b.cls;
+      head.innerHTML = '<span class="dot"></span>' + b.label;
+      treeListEl.appendChild(head);
+      TREE.filter(function (n) { return n.branch === b.id; }).forEach(function (n) {
+        var card = document.createElement('div');
+        card.className = 'node';
+        card.innerHTML =
+          '<div class="node-icon">' + n.icon + '</div>' +
+          '<div class="node-info"><div class="node-name"><span>' + n.name + '</span><span class="node-level">0</span></div>' +
+          '<div class="node-desc">' + n.desc + '</div></div>' +
+          '<button class="node-buy">—</button>';
+        treeListEl.appendChild(card);
+        var ref = { card: card, level: card.querySelector('.node-level'), buy: card.querySelector('.node-buy') };
+        ref.buy.addEventListener('click', function () { buyNode(n); });
+        treeRefs[n.id] = ref;
+      });
+    });
+  }
+  function nodeLocked(n) {
+    if (n.tier === 1) return false;
+    var prev = null;
+    for (var i = 0; i < TREE.length; i++) if (TREE[i].branch === n.branch && TREE[i].tier === n.tier - 1) prev = TREE[i];
+    return !prev || (state.tree[prev.id] || 0) < 1;
+  }
+  function buyNode(n) {
+    if (nodeLocked(n)) { toast('Сначала прокачай предыдущий узел этой ветки'); return; }
+    var cost = treeCost(n);
+    if (state.shards < cost) return;
+    state.shards -= cost;
+    state.tree[n.id] = (state.tree[n.id] || 0) + 1;
+    haptic('notify', 'success');
+    playBuySound();
+    updateTreeUI();
+  }
+  function updateTreeUI() {
+    var el = document.getElementById('treeShards');
+    el.innerHTML = '💠 Доступно осколков: <b>' + fmt(state.shards) + '</b>';
+    for (var i = 0; i < TREE.length; i++) {
+      var n = TREE[i], ref = treeRefs[n.id];
+      var lvl = state.tree[n.id] || 0, cost = treeCost(n);
+      var locked = nodeLocked(n);
+      ref.card.classList.toggle('locked', locked);
+      ref.level.textContent = lvl > 0 ? 'x' + lvl : (locked ? '🔒' : '');
+      if (locked) {
+        ref.buy.textContent = '🔒';
+        ref.buy.classList.add('disabled');
+      } else {
+        ref.buy.textContent = '💠 ' + fmt(cost);
+        ref.buy.classList.toggle('disabled', state.shards < cost);
+      }
+    }
+  }
+
+  /* ================= Скины ================= */
+  var skinsListEl = document.getElementById('skinsList');
+  var skinRefs = {};
+  function isOwned(skin) {
+    if (skin.category === 'stars') return !!ownedPaid[skin.id];
+    if (skin.category === 'coins') return !!state.coinSkins[skin.id];
+    if (skin.category === 'prestige') return state.prestige >= skin.prestige;
+    return true;
+  }
+  function bonusText(s) {
+    var parts = [];
+    if (s.bonus.click) parts.push('клик x' + s.bonus.click);
+    if (s.bonus.cps) parts.push('авто x' + s.bonus.cps);
+    if (s.bonus.luck) parts.push('удача x' + s.bonus.luck);
+    if (s.bonus.all) parts.push('всё x' + s.bonus.all);
+    return parts.length ? ('Бонус: ' + parts.join(', ')) : 'Без бонуса';
+  }
+  var SKIN_CATEGORIES = [
+    { id: 'default', label: '🟢 Стартовый' },
+    { id: 'coins', label: '💰 За монеты' },
+    { id: 'prestige', label: '💠 За престиж' },
+    { id: 'stars', label: '⭐ Платные (звёзды)' }
+  ];
+  function buildSkins() {
+    SKIN_CATEGORIES.forEach(function (cat) {
+      var list = SKINS.filter(function (s) { return s.category === cat.id; });
+      if (!list.length) return;
+      var head = document.createElement('div');
+      head.className = 'skin-cat';
+      head.textContent = cat.label;
+      skinsListEl.appendChild(head);
+      list.forEach(function (s) {
+        var card = document.createElement('div');
+        card.className = 'skin';
+        var prev = document.createElement('div');
+        prev.className = 'skin-preview';
+        var cv = document.createElement('canvas');
+        prev.appendChild(cv);
+        renderSprite(cv, s.map, getPalette(s, 0));
+        cv.style.width = '48px'; cv.style.height = '48px';
+        var info = document.createElement('div');
+        info.className = 'skin-info';
+        info.innerHTML =
+          '<div class="skin-name">' + s.name + '</div>' +
+          '<div class="skin-desc">' + s.desc + '</div>' +
+          '<div class="skin-bonus">' + bonusText(s) + '</div>';
+        var btn = document.createElement('button');
+        btn.className = 'skin-btn';
+        btn.addEventListener('click', function () { onSkinBtn(s); });
+        card.appendChild(prev); card.appendChild(info); card.appendChild(btn);
+        skinsListEl.appendChild(card);
+        skinRefs[s.id] = { card: card, btn: btn };
+      });
+    });
+  }
+  function onSkinBtn(s) {
+    if (isOwned(s)) { if (state.activeSkin !== s.id) equip(s); return; }
+    if (s.category === 'stars') { buySkin(s); return; }
+    if (s.category === 'coins') { buyCoinSkin(s); return; }
+    toast('Откроется на ' + s.prestige + '-м престиже');
+  }
+  function equip(s) {
+    state.activeSkin = s.id;
+    save();
+    renderPet(s, performance.now());
+    updateHint();
+    updateSkinsUI();
+    haptic('notify', 'success');
+    playBuySound();
+  }
+  function updateSkinsUI() {
+    for (var i = 0; i < SKINS.length; i++) {
+      var s = SKINS[i], ref = skinRefs[s.id];
+      ref.card.classList.toggle('equipped', state.activeSkin === s.id);
+      var btn = ref.btn;
+      btn.classList.remove('star', 'coin', 'equip', 'locked', 'owned');
+      if (state.activeSkin === s.id) { btn.textContent = 'Одет'; btn.classList.add('owned'); }
+      else if (isOwned(s)) { btn.textContent = 'Выбрать'; btn.classList.add('equip'); }
+      else if (s.category === 'stars') { btn.textContent = '⭐ ' + s.price; btn.classList.add('star'); }
+      else if (s.category === 'coins') { btn.textContent = '💰 ' + fmt(s.coins); btn.classList.add('coin'); }
+      else { btn.textContent = '💠 ' + s.prestige; btn.classList.add('locked'); }
+    }
+  }
+  function setBuying(skinId, on) { var r = skinRefs[skinId]; if (r) r.btn.disabled = !!on; }
+  function buyCoinSkin(s) {
+    if (state.coins < s.coins) { toast('Не хватает монет: нужно ' + fmt(s.coins)); return; }
+    state.coins -= s.coins;
+    state.coinSkins[s.id] = true;
+    save(); updateSkinsUI();
+    haptic('notify', 'success');
+    playBuySound();
+    toast('Скин «' + s.name + '» куплен за монеты!');
+  }
+  function buySkin(s) {
+    if (!tg) { toast('Покупка за звёзды доступна только внутри Telegram'); return; }
+    if (!serverOnline) { toast('Сервер недоступен — проверь, что запущен backend'); return; }
+    if (!initData) { toast('Нет данных Telegram'); return; }
+    setBuying(s.id, true);
+    api('/api/skin/invoice', { initData: initData, skinId: s.id }).then(function (res) {
+      setBuying(s.id, false);
+      if (!res) { toast('Сервер недоступен'); return; }
+      if (!res.ok) { toast(res.error === 'already owned' ? 'Скин уже куплен' : 'Ошибка: ' + (res.error || '?')); return; }
+      try {
+        tg.openInvoice(res.link, function (status) {
+          if (status === 'paid') pollPaid(res.token, s, 0);
+          else if (status === 'cancelled') toast('Оплата отменена');
+          else toast('Оплата не прошла');
+        });
+      } catch (e) { toast('Не удалось открыть оплату'); }
+    });
+  }
+  function pollPaid(token, s, tries) {
+    api('/api/skin/status?token=' + encodeURIComponent(token) + '&initData=' + encodeURIComponent(initData)).then(function (res) {
+      if (res && res.paid) {
+        ownedPaid[s.id] = true;
+        if (res.skins) res.skins.forEach(function (id) { ownedPaid[id] = true; });
+        toast('Скин «' + s.name + '» куплен!');
+        updateSkinsUI(); renderPet(activeSkin(), performance.now());
+        return;
+      }
+      if (tries < 8) setTimeout(function () { pollPaid(token, s, tries + 1); }, 1500);
+      else toast('Платёж обрабатывается — загляни чуть позже');
+    });
+  }
+
+  /* ================= Золотая монета (канал удачи) ================= */
+  var goldenEl = document.getElementById('golden');
+  var golden = { active: false, timer: 8, ttl: 0, x: 50, y: 50 };
+  function autoCollector() { return (state.levels.luck5 || 0) >= 1; }
+  function goldenStagePoint() {
+    var stage = document.querySelector('.stage');
+    var rect = stage.getBoundingClientRect();
+    return { x: rect.left + golden.x / 100 * rect.width, y: rect.top + golden.y / 100 * rect.height };
+  }
+  function spawnGolden() {
+    golden.x = 12 + Math.random() * 70;
+    golden.y = 20 + Math.random() * 55;
+    if (autoCollector()) {
+      // пассивный сбор: монета зачисляется сразу, тапать не нужно
+      var v = goldenValue();
+      var pt = goldenStagePoint();
+      addCoins(v);
+      spawnCoins(pt.x, pt.y, 5);
+      floatText(pt.x, pt.y - 20, '+' + fmt(v), 'gold');
+      return;
+    }
+    golden.ttl = goldenLifetime();
+    golden.active = true;
+    goldenEl.style.left = golden.x + '%';
+    goldenEl.style.top = golden.y + '%';
+    goldenEl.classList.add('on');
+  }
+  function collectGolden(e) {
+    if (!golden.active) return;
+    golden.active = false;
+    goldenEl.classList.remove('on');
+    var v = goldenValue() * 1.25;  // +25% за ручной тап
+    addCoins(v);
+    playCoinSound();
+    spawnCoins(e.clientX, e.clientY, 8);
+    floatText(e.clientX, e.clientY - 34, '+' + fmt(v), 'gold');
+    haptic('notify', 'success');
+    toast('Золотая монета! +' + fmt(v) + ' (+25% за тап)');
+  }
+  // золотая монета собирается через глобальный обработчик тапов ниже
+
+  /* ================= Частицы / эффекты ================= */
+  var fxCanvas = document.getElementById('fx');
+  var fxCtx = fxCanvas.getContext('2d');
+  var parts = [];
+  function resizeFx() { fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight; }
+  resizeFx();
+  window.addEventListener('resize', resizeFx);
+  function spawnCoins(x, y, n) {
+    if (!settings.fx) return;
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3.5;
+      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.5, life: 1, size: 14 + Math.random() * 14 });
+    }
+  }
+  function updateParts(dt) {
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    for (var i = parts.length - 1; i >= 0; i--) {
+      var p = parts[i];
+      p.vy += 0.6 * dt * 60; p.x += p.vx; p.y += p.vy; p.life -= 0.035 * dt * 60;
+      if (p.life <= 0 || p.y > fxCanvas.height + 40) { parts.splice(i, 1); continue; }
+      fxCtx.globalAlpha = Math.max(0, p.life);
+      fxCtx.drawImage(coinSprite, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    fxCtx.globalAlpha = 1;
+  }
+  function floatText(x, y, txt, kind) {
+    if (!settings.fx) return;
+    var el = document.createElement('div');
+    el.className = 'float' + (kind ? ' ' + kind : '');
+    el.textContent = txt;
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 950);
+  }
+
+  /* ================= Ambient (фон) ================= */
+  var ambCanvas = document.getElementById('ambient');
+  var ambCtx = ambCanvas.getContext('2d');
+  var ambDots = [];
+  function resizeAmbient() {
+    var stage = document.querySelector('.stage');
+    ambCanvas.width = stage.clientWidth;
+    ambCanvas.height = stage.clientHeight;
+  }
+  resizeAmbient();
+  window.addEventListener('resize', resizeAmbient);
+  (function initAmbient() {
+    for (var i = 0; i < 16; i++) {
+      ambDots.push({
+        x: Math.random(), y: Math.random(),
+        vy: 0.02 + Math.random() * 0.04,
+        size: 2 + Math.random() * 3,
+        c: ['#4ddb4d', '#ffd21f', '#4aa3ff', '#ff6b81'][i % 4]
+      });
+    }
+  })();
+  function updateAmbient(dt) {
+    ambCtx.clearRect(0, 0, ambCanvas.width, ambCanvas.height);
+    for (var i = 0; i < ambDots.length; i++) {
+      var d = ambDots[i];
+      d.y -= d.vy * dt;
+      if (d.y < -0.05) { d.y = 1.05; d.x = Math.random(); }
+      ambCtx.globalAlpha = 0.35;
+      ambCtx.fillStyle = d.c;
+      ambCtx.fillRect(d.x * ambCanvas.width, d.y * ambCanvas.height, d.size, d.size);
+    }
+    ambCtx.globalAlpha = 1;
+  }
+
+  /* ================= Тап ================= */
+  var petEl = document.getElementById('pet');
+  function onPetTap(e) {
+    var cp = clickPower();
+    var crit = Math.random() < critChance();
+    var gain = crit ? cp * critMult() : cp;
+    addCoins(gain);
+    playTapSound();
+    state.clicks++;
+    spawnCoins(e.clientX, e.clientY, crit ? 6 : 3);
+    floatText(e.clientX, e.clientY - 30, (crit ? 'КРИТ! +' : '+') + fmt(gain), crit ? 'crit' : null);
+    petEl.classList.remove('pop');
+    void petEl.offsetWidth;
+    petEl.classList.add('pop');
+    haptic('impact', crit ? 'heavy' : 'light');
+  }
+  // Глобальный перехват тапов по координатам — работает в любом окружении
+  function rectHit(e, r) {
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  }
+  document.addEventListener('click', function (e) {
+    // сначала золотая монета (она лежит поверх персонажа)
+    var gold = document.getElementById('golden');
+    if (gold && gold.classList.contains('on')) {
+      var gr = gold.getBoundingClientRect();
+      if (rectHit(e, { left: gr.left - 10, right: gr.right + 10, top: gr.top - 10, bottom: gr.bottom + 10 })) { collectGolden(e); return; }
+    }
+    var pet = document.getElementById('pet');
+    var pr = pet.getBoundingClientRect();
+    if (rectHit(e, pr)) onPetTap(e);
+  });
+
+  /* ================= Топ ================= */
+  var currentMetric = 'shards';
+  var myRanks = { coins: 0, cps: 0, shards: 0, prestiges: 0 };
+  var METRIC_ICON = { coins: '💰', cps: '⚡', shards: '💠', prestiges: '🔄' };
+  function metricValLocal() {
+    if (currentMetric === 'coins') return state.coins;
+    if (currentMetric === 'cps') return cpsValue();
+    if (currentMetric === 'prestiges') return state.prestiges;
+    return state.prestige;
+  }
+  function metricVal(r) {
+    if (currentMetric === 'coins') return r.coins;
+    if (currentMetric === 'cps') return r.cps;
+    if (currentMetric === 'prestiges') return r.prestiges;
+    return r.prestige;
+  }
+  function submitScore() {
+    if (!tg || !initData || !serverOnline) return;
+    api('/api/score', { initData: initData, prestige: state.prestige, clicks: state.clicks, prestiges: state.prestiges, coins: state.coins, cps: cpsValue() }).then(function (res) {
+      if (res && res.ok && res.ranks) { myRanks = res.ranks; renderMyRank(); }
+    });
+  }
+  function renderMyRank() {
+    var el = document.getElementById('myRank');
+    if (!tg) { el.textContent = 'Открой игру внутри Telegram, чтобы попасть в топ'; return; }
+    if (!serverOnline) { el.textContent = 'Сервер недоступен'; return; }
+    var r = myRanks[currentMetric] || 0;
+    el.innerHTML = r > 0
+      ? 'Твоё место: <b>#' + r + '</b> · ' + METRIC_ICON[currentMetric] + ' ' + fmt(metricValLocal())
+      : 'Ты пока не в топе';
+  }
+  function fetchLeaderboard() {
+    var el = document.getElementById('topList');
+    if (!tg) { el.innerHTML = '<div class="note">Авторизуйся в Telegram, чтобы видеть топ игроков.</div>'; return; }
+    if (!serverOnline) { el.innerHTML = '<div class="note">Сервер недоступен — запусти backend (node server.js).</div>'; return; }
+    el.innerHTML = '<div class="note">Загрузка…</div>';
+    api('/api/leaderboard?type=' + currentMetric).then(function (res) {
+      if (!res || !res.ok || !res.top) { el.innerHTML = '<div class="note">Не удалось загрузить топ.</div>'; return; }
+      if (!res.top.length) { el.innerHTML = '<div class="note">Пока никого нет — будь первым!</div>'; return; }
+      var me = tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+      var html = '';
+      res.top.forEach(function (r) {
+        var isMe = me && String(me.id) === String(r.id);
+        var rankClass = r.rank === 1 ? ' top1' : r.rank === 2 ? ' top2' : r.rank === 3 ? ' top3' : '';
+        var name = r.username ? ('@' + r.username) : r.name;
+        html += '<div class="row' + (isMe ? ' me' : '') + '">' +
+          '<div class="row-rank' + rankClass + '">' + r.rank + '</div>' +
+          '<div class="row-name">' + esc(name) + '<small>' + esc(r.name) + '</small></div>' +
+          '<div class="row-score">' + METRIC_ICON[currentMetric] + ' ' + fmt(metricVal(r)) + '<small>👆 ' + fmt(r.clicks) + '</small></div>' +
+        '</div>';
+      });
+      el.innerHTML = html;
+    });
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  document.getElementById('refreshTop').addEventListener('click', function () { submitScore(); fetchLeaderboard(); });
+  var metricBtns = document.querySelectorAll('.metric');
+  metricBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      currentMetric = b.getAttribute('data-metric');
+      metricBtns.forEach(function (x) { x.classList.toggle('active', x === b); });
+      submitScore(); fetchLeaderboard();
+    });
+  });
+
+  /* ================= Настройки (UI) ================= */
+  var SETTINGS_ITEMS = [
+    { key: 'sound', icon: '🔔', name: 'Звук', desc: 'Звуковые эффекты тапов и покупок' },
+    { key: 'haptics', icon: '📳', name: 'Вибрация', desc: 'Тактильный отклик в Telegram' },
+    { key: 'fx', icon: '✨', name: 'Эффекты', desc: 'Частицы и всплывающие числа' }
+  ];
+  function buildSettingsUI() {
+    var el = document.getElementById('settingsList');
+    if (el.childElementCount > 0) return;
+    SETTINGS_ITEMS.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'setting';
+      row.innerHTML = '<div class="setting-info"><div class="setting-name">' + item.icon + ' ' + item.name + '</div><div class="setting-desc">' + item.desc + '</div></div>';
+      var sw = document.createElement('div');
+      sw.className = 'switch' + (settings[item.key] ? ' on' : '');
+      sw.addEventListener('click', function () {
+        settings[item.key] = !settings[item.key];
+        sw.classList.toggle('on', settings[item.key]);
+        saveSettings();
+        if (settings[item.key] && item.key === 'sound') playTapSound();
+      });
+      row.appendChild(sw);
+      el.appendChild(row);
+    });
+    var dnote = document.createElement('div');
+    dnote.className = 'note';
+    var todayStr = dayStr(new Date());
+    dnote.textContent = (state.lastDaily === todayStr)
+      ? '🎁 Ежедневная награда получена сегодня · серия: ' + (state.dailyStreak || 0)
+      : '🎁 Ежедневная награда доступна!';
+    el.appendChild(dnote);
+    var vnote = document.createElement('div');
+    vnote.className = 'note';
+    vnote.textContent = 'Версия ' + GAME_VERSION;
+    el.appendChild(vnote);
+  }
+
+  /* ================= Вкладки ================= */
+  var tabs = document.querySelectorAll('.tab');
+  var currentTab = 'game';
+  var lastTab = 'game';
+  var SCREENS = ['game', 'tree', 'skins', 'top', 'settings'];
+  function showScreen(name) {
+    if (name !== 'settings') lastTab = name;
+    currentTab = name;
+    tabs.forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === name); });
+    SCREENS.forEach(function (s) {
+      document.getElementById('screen-' + s).classList.toggle('active', s === name);
+    });
+    document.getElementById('gearBtn').textContent = (name === 'settings') ? '✕' : '⚙️';
+    if (name === 'tree') updateTreeUI();
+    if (name === 'skins') updateSkinsUI();
+    if (name === 'top') { submitScore(); fetchLeaderboard(); }
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { showScreen(t.getAttribute('data-tab')); });
+  });
+  document.getElementById('gearBtn').addEventListener('click', function () {
+    showScreen(currentTab === 'settings' ? lastTab : 'settings');
+  });
+
+  /* ================= Сброс ================= */
+  document.getElementById('reset').addEventListener('click', function () {
+    showInfo('Сбросить прогресс «просто так» нельзя.\n\nЕдинственный сброс — это ПРЕСТИЖ: он обнуляет монеты и улучшения, но даёт 💠 осколки навсегда (тратятся в «Дереве баффов»).\n\nЖми на фиолетовую полосу «✨ ПРЕСТИЖ» вверху экрана, когда накопишь монеты за ход.');
+  });
+
+  /* ================= Toast ================= */
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove('show'); }, 4200);
+  }
+
+  /* ================= Ежедневная награда ================= */
+  function dayStr(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function checkDaily() {
+    var today = dayStr(new Date());
+    if (state.lastDaily === today) return;
+    var y = new Date(); y.setDate(y.getDate() - 1);
+    state.dailyStreak = (state.lastDaily === dayStr(y)) ? (state.dailyStreak || 0) + 1 : 1;
+    var streak = Math.min(state.dailyStreak, 7);
+    var mult = 1 + (streak - 1) * 0.25;
+    var reward = Math.floor(Math.max(100, cpsValue() * 300 + clickPower() * 150) * mult);
+    state.coins += reward;
+    state.totalCoins += reward;
+    state.lastDaily = today;
+    save();
+    var el = document.getElementById('dailyModal');
+    document.getElementById('dailyMsg').innerHTML =
+      'День <b>' + streak + '</b> подряд!' + (streak > 1 ? ' (+' + Math.round((mult - 1) * 100) + '% за серию)' : '') +
+      '<br>Награда: <b>' + fmt(reward) + '</b> монет';
+    el.classList.add('show');
+    document.getElementById('dailyOk').onclick = function () {
+      el.classList.remove('show');
+      document.getElementById('dailyOk').onclick = null;
+      haptic('notify', 'success');
+      playBuySound();
+    };
+  }
+
+  /* ================= Офлайн-доход ================= */
+  function applyOffline() {
+    var cps = cpsValue();
+    if (cps <= 0) return;
+    var elapsed = (Date.now() - state.last) / 1000;
+    if (elapsed < 60) return;
+    var a = treeAgg();
+    var ratio = Math.min(1, 0.5 + a.offline);
+    var earned = Math.floor(cps * elapsed * ratio);
+    if (earned <= 0) return;
+    addCoins(earned);
+    toast('Пока тебя не было (' + Math.floor(elapsed / 60) + ' мин):\n+' + fmt(earned) + ' монет');
+  }
+
+  /* ================= Профиль с сервера ================= */
+  function loadProfile() {
+    if (!tg || !initData) return;
+    api('/api/profile', { initData: initData }).then(function (res) {
+      if (!res || !res.ok || !res.profile) return;
+      var pr = res.profile;
+      if (pr.prestige > state.prestige) state.prestige = pr.prestige;
+      if (pr.clicks > state.clicks) state.clicks = pr.clicks;
+      if (Array.isArray(pr.skins)) pr.skins.forEach(function (id) { ownedPaid[id] = true; });
+      save(); updateSkinsUI(); updatePrestigeBar();
+    });
+  }
+
+  /* ================= Главный цикл ================= */
+  var lastSave = Date.now();
+  var lastScore = Date.now();
+  var lastFrame = performance.now();
+  var lastTickAt = 0;
+  var goldenTimer = 6;
+
+  function tick(now) {
+    var t = (typeof now === 'number' && now > 0) ? now : performance.now();
+    if (t - lastTickAt < 33) return;
+    lastTickAt = t;
+    try {
+      var dt = Math.min((t - lastFrame) / 1000, 1);
+      lastFrame = t;
+
+      var cps = cpsValue();
+      if (cps > 0) addCoins(cps * dt);
+
+      // золотая монета (канал удачи)
+      if (!golden.active) {
+        goldenTimer -= dt;
+        if (goldenTimer <= 0) { spawnGolden(); goldenTimer = goldenInterval(); }
+      } else {
+        golden.ttl -= dt;
+        if (golden.ttl <= 0) {
+          // авто-сбор по истечении времени жизни (монета не пропадает)
+          var el = goldenEl.getBoundingClientRect();
+          var v = goldenValue();
+          addCoins(v);
+          spawnCoins(el.left + el.width / 2, el.top + el.height / 2, 5);
+          floatText(el.left + el.width / 2, el.top, '+' + fmt(v), 'gold');
+          golden.active = false;
+          goldenEl.classList.remove('on');
+          goldenTimer = goldenInterval();
+        }
+      }
+
+      updateParts(dt);
+      updateAmbient(dt);
+      if (activeSkin().animated) renderPet(activeSkin(), t);
+
+      document.getElementById('coins').textContent = fmt(state.coins);
+      document.getElementById('cps').textContent = fmt(cps) + '/с';
+      document.getElementById('shards').textContent = fmt(state.shards);
+      updateUpgrades();
+      updatePrestigeBar();
+      setSaveInfo();
+
+      if (t - lastSave > 3000) { save(); lastSave = t; }
+      if (t - lastScore > 30000) { submitScore(); lastScore = t; }
+    } catch (err) {
+      if (window.console && window.console.error) window.console.error('loop error:', err);
+    }
+  }
+  function rafLoop(now) { tick(now); requestAnimationFrame(rafLoop); }
+
+  /* ================= Старт ================= */
+  loadSettings();
+  load();
+  renderPet(activeSkin(), performance.now());
+  updateHint();
+  buildUpgrades();
+  buildTree();
+  buildSkins();
+  buildSettingsUI();
+  updateUpgrades();
+  updateTreeUI();
+  updateSkinsUI();
+  updatePrestigeBar();
+  setSaveInfo();
+  checkDaily();
+
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+
+  api('/api/health').then(function (res) {
+    serverOnline = !!(res && res.ok);
+    loadProfile();
+    submitScore();
+    renderMyRank();
+  });
+
+  applyOffline();
+  requestAnimationFrame(rafLoop);
+  setInterval(function () { tick(performance.now()); }, 100);
+
+  document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
+  window.addEventListener('beforeunload', save);
+})();
+</script>
+</body>
+</html>
